@@ -63,6 +63,7 @@ include("algorithms/ForwardBackward.jl")
 include("algorithms/ZeroFPR.jl")
 include("algorithms/PANOC.jl")
 include("algorithms/DouglasRachford.jl")
+include("algorithms/DouglasRachfordNewton.jl")
 include("algorithms/AsymmetricForwardBackwardAdjoint.jl")
 
 # include("algorithms/VuCondat.jl")

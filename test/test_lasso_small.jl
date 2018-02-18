@@ -102,6 +102,14 @@ x0 = zeros(n)
 @test it < 30
 println(sol)
 
+# Douglas-Rachford Newton
+
+x0 = zeros(n)
+@time it, x, sol = ProximalAlgorithms.DRN(x0; f=f2, g=g, gamma=0.95/norm(A)^2)
+@test vecnorm(x - x_star, Inf) <= 1e-4
+@test it < 30
+println(sol)
+
 #testing solver already at solution
 @time it, x = ProximalAlgorithms.run!(sol)
 @test it == 1
