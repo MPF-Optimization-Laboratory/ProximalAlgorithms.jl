@@ -10,6 +10,7 @@ struct DRSIterator{I <: Integer, R <: Real, T <: BlockArray{R}} <: ProximalAlgor
     f
     g
     gamma::R
+    lambda::R
     maxit::I
     tol::R
     verbose::I
@@ -23,13 +24,13 @@ end
 ################################################################################
 # Constructor(s)
 
-function DRSIterator(x0::BlockArray{R}; f=Zero(), g=Zero(), gamma::R=1.0, maxit::I=10000, tol::R=1e-4, verbose=1, verbose_freq = 100) where {I, R}
+function DRSIterator(x0::BlockArray{R}; f=Zero(), g=Zero(), gamma::R=1.0, lambda::R=1.0, maxit::I=10000, tol::R=1e-4, verbose=1, verbose_freq = 100) where {I, R}
     y = blockcopy(x0)
     r = blockcopy(x0)
     z = blockcopy(x0)
     FPR_x = blockcopy(x0)
     FPR_x .= Inf
-    return DRSIterator{I, R, typeof(x0)}(x0, f, g, gamma, maxit, tol, verbose, verbose_freq, y, r, z, FPR_x)
+    return DRSIterator{I, R, typeof(x0)}(x0, f, g, gamma, lambda, maxit, tol, verbose, verbose_freq, y, r, z, FPR_x)
 end
 
 ################################################################################
@@ -53,8 +54,9 @@ end
 
 function Base.show(io::IO, sol::DRSIterator)
     println(io, "Douglas-Rachford Splitting" )
-    println(io, "fpr        : $(blockmaxabs(sol.FPR_x))")
+    print(  io, "lambda     : $(sol.lambda)")
     print(  io, "gamma      : $(sol.gamma)")
+    println(io, "fpr        : $(blockmaxabs(sol.FPR_x))")
 end
 
 ################################################################################
@@ -72,7 +74,7 @@ function iterate!(sol::DRSIterator{I, T}, it::I) where {I, T}
     sol.r .= 2.*sol.y .- sol.x
     prox!(sol.z, sol.g, sol.r, sol.gamma)
     sol.FPR_x .= sol.y .- sol.z
-    sol.x .-= sol.FPR_x
+    sol.x .-= sol.lambda.*sol.FPR_x
     return sol.z
 end
 
