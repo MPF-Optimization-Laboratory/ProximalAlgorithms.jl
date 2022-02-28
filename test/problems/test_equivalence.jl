@@ -36,6 +36,49 @@ using ProximalAlgorithms:
     end
 end
 
+
+@testset "Pnp-DRS equivalence ($T)" for T in [Float32, Float64]
+    A = T[
+        1.0 -2.0 3.0 -4.0 5.0
+        2.0 -1.0 0.0 -1.0 3.0
+        -1.0 0.0 4.0 -3.0 2.0
+        -1.0 -1.0 -1.0 1.0 3.0
+    ]
+    b = T[1.0, 2.0, 3.0, 4.0]
+
+    m, n = size(A)
+
+    R = real(T)
+
+    lam = R(0.1) * norm(A' * b, Inf)
+
+    f = LeastSquares(A, b)
+    g = NormL1(lam)
+
+    x0 = zeros(R, n)
+
+    y = similar(x0)
+
+    gamma=R(10) / opnorm(A)^2
+
+    proxf!(xhat,uhat) = prox!(xhat,f,uhat,gamma) #in place prox updates xhat
+
+    denoiser(yhat,rhat) = prox!(yhat,g,rhat,gamma) #rhat^{k+1} = 2xhat^{k+1} - uhat^{k}
+
+    #dr_iter = DouglasRachfordIteration(f=f, g=g, x0=x0, gamma=R(10) / opnorm(A)^2)
+
+    dr_iter = DouglasRachfordIteration(f=f, g=g, x0=x0, gamma=gamma)
+    pnp_dr_iter = PnpDrsIteration(proxf! = proxf!, denoiser!=denoiser!, uhat0 = x0, gamma = gamma)
+
+    
+    for (dr_state, pnp_dr_state) in Iterators.take(zip(dr_iter, pnp_dr_iter), 10)
+        @test isapprox(dr_state.x, pnp_dr_state.uhat)
+        @test isapprox(dr_state.y, pnp_dr_state.xhat)
+        @test isapprox(dr_state.z, pnp_dr_state.yhat)
+    end
+end
+
+
 @testset "FB/PANOC equivalence ($T)" for T in [Float32, Float64]
     A = T[
         1.0 -2.0 3.0 -4.0 5.0
