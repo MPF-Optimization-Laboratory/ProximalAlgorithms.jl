@@ -3,6 +3,7 @@
 # Proximal Point Algorithm for Maximal Monotone Operators",
 # Mathematical Programming, vol. 55, no. 1, pp. 293-318 (1989).
 
+# this is the plug and play version of DR
 
 using Base.Iterators
 using ProximalAlgorithms.IterationTools
@@ -21,21 +22,17 @@ Base.IteratorSize(::Type{<:PnpDrsIteration}) = Base.IsInfinite()
 
 Base.@kwdef struct PnpDrsState{Tx}
     xhat::Tx
-    yhat::Tx = similar(x)
-    rhat::Tx = similar(x)
-    uhat::Tx = similar(x)
+    yhat::Tx = similar(xhat)
+    rhat::Tx = similar(xhat)
+    uhat::Tx = similar(xhat)
     #res::Tx = similar(x)
 end
 
 
-function Base.iterate(iter::PnpDrsIteration, state::PnpDrsState = PnpDrsState(x=copy(iter.x0)))
-    #prox!(state.y, iter.f, state.x, iter.gamma)
+function Base.iterate(iter::PnpDrsIteration, state::PnpDrsState = PnpDrsState(xhat=copy(iter.uhat0)))
     iter.proxf!(state.xhat,state.uhat) # xhat^{k+1} = A(uhat^{k+1})
     state.rhat .= 2 .* state.xhat .- state.uhat
-    #prox!(state.z, iter.g, state.r, iter.gamma)
     iter.denoiser!(state.yhat,state.rhat) # yhat^{k+1} = B(2xhat^{k+1} - uhat^k)
-    #state.res .= state.x .- state.y
-    #state.x .-= state.res
     state.uhat .-= (state.xhat - state.yhat) #uhat^{k+1} = uhat^k - (xhat^{k+1} - yhat^{k+1})
     return state, state
 end
