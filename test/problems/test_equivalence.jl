@@ -64,13 +64,10 @@ end
     gamma=R(10) / opnorm(A)^2
 
     proxf!(xhat,uhat) = prox!(xhat,f,uhat,gamma) #in place prox updates xhat
-
     denoiser!(yhat,rhat) = prox!(yhat,g,rhat,gamma) #rhat^{k+1} = 2xhat^{k+1} - uhat^{k}
 
-    #dr_iter = DouglasRachfordIteration(f=f, g=g, x0=x0, gamma=R(10) / opnorm(A)^2)
-
     dr_iter = DouglasRachfordIteration(f=f, g=g, x0=x0, gamma=gamma)
-    
+
     pnp_dr_iter = PnpDrsIteration(proxf! = proxf!, denoiser! = denoiser!, uhat0 = x0, gamma = gamma)
 
     

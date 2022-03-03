@@ -11,9 +11,9 @@ using ProximalOperators: Zero
 using LinearAlgebra
 using Printf
 
-Base.@kwdef struct PnpDrsIteration{R,C<:Union{R,Complex{R}},Tx<:AbstractArray{C},Tf,Tg}
-    proxf!::Tf = Zero()
-    denoiser!::Tg = Zero()
+Base.@kwdef struct PnpDrsIteration{R,C<:Union{R,Complex{R}},Tx<:AbstractArray{C},F<:Function,G<:Function}
+    proxf!::F
+    denoiser!::G
     uhat0::Tx #uhat0 takes the place of x0
     gamma::R #don't think gamma is needed
 end
