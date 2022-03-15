@@ -4,6 +4,8 @@ This is where I create denoising functions for the plug and play methods
 
 using BSON: @load
 using MLDatasets: FashionMNIST
+using NNlib
+using Flux
 
 #=
 Here I copy Babhru's VAE denoiser
@@ -50,12 +52,5 @@ function reconstruct_images(encoder_μ, encoder_logvar, decoder, x)
 end
 
 
-# the function below is just for loading MNIST data
-# TO DO: Move this function elsewhere
 
-function get_test_loader(batch_size, shuffle::Bool)
-    # The FashionMNIST test set is made up of 10k 28 by 28 greyscale images
-    test_x, test_y = FashionMNIST.testdata(Float32)
-    test_x = 1 .- reshape(test_x, (784, :))
-    return DataLoader((test_x, test_y), batchsize=batch_size, shuffle=shuffle)
-end
+
