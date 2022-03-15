@@ -15,3 +15,36 @@ end
 function convert_and_save_single_MNIST_image(x,save_dir::String,filename::String)
     save( joinpath(save_dir, "$filename.png"), MNIST.convert2image(x) )
 end
+
+
+function get_test_loader(batch_size,shuffle::Bool,type::String)
+    # The FashionMNIST test set is made up of 10k 28 by 28 greyscale images
+    if type == "FashionMNIST"
+        test_x, test_y = FashionMNIST.testdata(Float32)
+    elseif type == "MNIST"
+        test_x, test_y = MNIST.testdata(Float32)
+    end
+    #test_x = 1 .- reshape(test_x, (784, :)) #reshape and flip white/black
+    test_x = vectorize_and_flip(test_x)
+    return DataLoader((test_x, test_y), batchsize=batch_size, shuffle=shuffle)
+end
+
+
+
+function get_test_images(start_index::Int64,end_index::Int64,type::String)
+    @assert start_index <= end_index
+    if type == "FashionMNIST"
+        test_x, test_y = FashionMNIST.testdata(Float32,start_index:end_index)
+    elseif type == "MNIST"
+        test_x, test_y = MNIST.testdata(Float32,start_index:end_index)
+    end
+    #test_x = 1 .- reshape(test_x, (784, :)) #vectorize images, leave lables unchanged
+    test_x = vectorize_and_flip(test_x)
+    return (test_x, test_y)
+end
+
+# TO DO: make unit test for this
+function vectorize_and_flip(x_in)
+    m,n = size(x_in)
+    x_out = 1 .- reshape(x_in, (m*n,:))
+end
