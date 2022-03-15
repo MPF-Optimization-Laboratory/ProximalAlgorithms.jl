@@ -2,6 +2,8 @@
 This is where I create denoising functions for the plug and play methods
 =#
 
+using BSON: @load
+using MLDatasets: FashionMNIST
 
 #=
 Here I copy Babhru's VAE denoiser
@@ -35,8 +37,21 @@ function load_model(load_dir::String, epoch::Int)
     return encoder_μ, encoder_logvar, decoder
 end
 
+
+function reconstruct_images(encoder_μ, encoder_logvar, decoder, x)
+    # Forward propagate through mean encoder and std encoders
+    μ = encoder_μ(x)
+    logvar = encoder_logvar(x)
+    # Apply reparameterisation trick to sample latent
+    z = μ + randn(Float32, size(logvar)) .* exp.(0.5f0 * logvar)
+    # Reconstruct from latent sample
+    x̂ = decoder(z)
+    return clamp.(x̂, 0 ,1)
+end
+
+
 # the function below is just for loading MNIST data
-# TO DO: Move this fucntion elsewhere
+# TO DO: Move this function elsewhere
 
 function get_test_loader(batch_size, shuffle::Bool)
     # The FashionMNIST test set is made up of 10k 28 by 28 greyscale images

@@ -3,9 +3,14 @@ uuid = "140ffc9f-1907-541a-a177-7475e0a401e9"
 version = "0.5.0"
 
 [deps]
+BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
+Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
+ImageCore = "a09fc81d-aa75-5fe9-8630-4744c3626534"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MLDatasets = "eb30cadb-4394-5ae3-aed4-317e484a6458"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 ProximalOperators = "a725b495-10eb-56fe-b38b-717eba820537"
+RecursiveArrayTools = "731186ca-8d62-57ce-b412-fbd966d074cd"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
