@@ -20,18 +20,15 @@ function run_example()
     model_dir = "./src/utilities/saved_models/MNIST"
     encoder_μ, encoder_logvar, decoder = load_model(model_dir,model_epoch_number)
 
+    # backward operator (denoiser)
     function vae_denoiser!(x,y)
-        #defining the denoiser this way so that it has the same format as prox!
-        x = reconstruct_images(encoder_μ, encoder_logvar, decoder,y)
+        # defining the denoiser this way so that it has the same format as prox!
+        x .= reconstruct_images(encoder_μ, encoder_logvar, decoder,y)
     end
 
-    #g = vae_denoiser!
-
     test_x, test_y = MNIST.testdata(Float32,example_index)
+    
     m,n = size(test_x)
-
-    # look for FFT tutorial for blurring model
-    # sparko test set
     A_full_rank = rand(Float32, (m*n, m*n))
     max_rank = Int64(floor(m*n*k))
     F = svd(A_full_rank)
@@ -41,33 +38,36 @@ function run_example()
     end
 
     A = F.U * Diagonal(F.S) * F.Vt
-
     test_x_vec = vectorize_and_flip(test_x)
 
-    b = A*test_x_vec[:]
+    convert_and_save_single_MNIST_image(test_x_vec[:],"./scripts/temp/","ground_truth")
+
+
+    b = A*test_x_vec[:] # TO DO: values of b are outside (0,1) range, fix this
+
+    # convert_and_save_single_MNIST_image(clamp.(b,0,1),"./scripts/temp/","observed")
 
     f = LeastSquares(A, b)
 
     lam = R(0.1) * norm(A' * b, Inf)
-    x0 = zeros(R, m*n)
+    #x0 = zeros(R, m*n)
+    x0 = test_x_vec[:]
     y = similar(x0)
-    gamma = R(10) / opnorm(A)^2 #constant parameter for douglas rachford
+    gamma = R(10) / opnorm(A)^2 # constant parameter for douglas rachford
     gamma = 1.0f0
 
-    #forward operator
+    # forward operator
     proxf!(xhat,uhat) = prox!(xhat,f,uhat,gamma)
-    #backward operator
-
     
-    # TO DO fix denoiser, shouldn't be prox
-    #denoiser!(yhat,rhat) = prox!(yhat,g,rhat,gamma)
-
-    #pnp_dr_iter = PnpDrsIteration(proxf! = proxf!, denoiser! = denoiser!, uhat0 = x0, gamma = gamma)
     pnp_dr_iter = PnpDrsIteration(proxf! = proxf!, denoiser! = vae_denoiser!, uhat0 = x0, gamma = gamma)
 
-
-    for pnp_dr_state in Iterators.take(pnp_dr_iter,100)
-        println(norm(test_x_vec - pnp_dr_state.xhat))
+    i = 0
+    # TO DO: find a useful way to look at output
+    for pnp_dr_state in Iterators.take(pnp_dr_iter,50)
+        convert_and_save_single_MNIST_image(pnp_dr_state.xhat,"./scripts/temp/","iteration_$i")
+        #println(norm(test_x_vec - pnp_dr_state.xhat))
+        println(norm(pnp_dr_state.xhat))
+        i+=1
     end
 
 

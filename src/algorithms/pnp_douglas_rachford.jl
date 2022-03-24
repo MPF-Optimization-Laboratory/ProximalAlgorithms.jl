@@ -22,14 +22,14 @@ Base.IteratorSize(::Type{<:PnpDrsIteration}) = Base.IsInfinite()
 
 Base.@kwdef struct PnpDrsState{Tx}
     xhat::Tx
-    yhat::Tx = similar(xhat)
+    yhat::Tx = similar(xhat) #empty
     rhat::Tx = similar(xhat)
     uhat::Tx = similar(xhat)
     #res::Tx = similar(x)
 end
 
 
-function Base.iterate(iter::PnpDrsIteration, state::PnpDrsState = PnpDrsState(xhat=copy(iter.uhat0)))
+function Base.iterate(iter::PnpDrsIteration, state::PnpDrsState = PnpDrsState(xhat=copy(iter.uhat0),uhat=copy(iter.uhat0)))
     iter.proxf!(state.xhat,state.uhat) # xhat^{k+1} = A(uhat^{k+1})
     state.rhat .= 2 .* state.xhat .- state.uhat
     iter.denoiser!(state.yhat,state.rhat) # yhat^{k+1} = B(2xhat^{k+1} - uhat^k)
