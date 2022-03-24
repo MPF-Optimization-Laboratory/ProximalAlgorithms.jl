@@ -17,3 +17,5 @@ Manifest.toml
 docs/Manifest.toml
 benchmark/Manifest.toml
 benchmark/*.json
+
+scripts/temp
