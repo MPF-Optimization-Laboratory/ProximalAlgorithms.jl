@@ -7,6 +7,9 @@ include("../src/algorithms/pnp_douglas_rachford.jl")
 
 using LinearAlgebra
 using ProximalOperators
+using MLDatasets
+using Flux
+using Zygote
 
 
 function run_example_1()
@@ -188,3 +191,30 @@ function run_example_3()
 
 
 end
+
+
+# temporary function for trying the optimized decoder denoiser
+function run_denoising_example()
+    example_index = 11
+    test_x, test_y = MNIST.testdata(Float32,example_index)
+
+    test_x_vec = vectorize_and_flip(test_x)[:]
+    resize_and_save_single_MNIST_image(test_x_vec,"./scripts/temp/run_denoising","before_denoising")
+
+
+    model_epoch_number = 20
+    model_dir = "./src/utilities/saved_models/MNIST"
+    encoder_μ, encoder_logvar, decoder = load_model(model_dir,model_epoch_number)
+    
+    z0 = add_additive_noise(ones(20)) #initial point for gradient descent
+    y_noisy = add_additive_noise(test_x_vec) # vectorized noisy image
+    loss_function = decoder_loss_function
+    
+    num_iter = 40 #number of iterations of gradient descent
+    z_out = gradient_descent(loss_function,z0,decoder,y_noisy,num_iter)
+    
+    x_out = decoder(z_out)
+    resize_and_save_single_MNIST_image(x_out,"./scripts/temp/run_denoising","after_denoising_$num_iter")
+
+end
+

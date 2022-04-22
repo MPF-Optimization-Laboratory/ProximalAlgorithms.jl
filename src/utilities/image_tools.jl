@@ -55,3 +55,7 @@ function vectorize_and_flip(x_in)
     m,n = size(x_in)
     x_out = 1 .- reshape(x_in, (m*n,:))
 end
+
+function add_additive_noise(x_in)
+    x_out = x_in + randn(length(x_in))
+end
