@@ -1,9 +1,13 @@
 # this is a temporary script for trying out pnp algorithms on images
 
+
+import ProximalOperators.prox!
+
 # run from ProximalAlgorithms.jl folder, e.g.  /home/naomigra/projects/def-mpf/naomigra/2022/pnp_IR/dev/ProximalAlgorithms.jl
 include("../src/utilities/denoisers.jl")
 include("../src/utilities/image_tools.jl")
 include("../src/algorithms/pnp_douglas_rachford.jl")
+include("../src/algorithms/admm.jl")
 
 using LinearAlgebra
 using ProximalOperators
@@ -66,10 +70,10 @@ function run_example_1()
 
     i = 0
     # TO DO: find a useful way to look at output
-    for pnp_dr_state in Iterators.take(pnp_dr_iter,50)
-        convert_and_save_single_MNIST_image(pnp_dr_state.xhat,"./scripts/temp/","iteration_$i")
-        # println(norm(test_x_vec - pnp_dr_state.xhat))
-        println(norm(pnp_dr_state.xhat))
+    for pnp_dr_state in Iterators.take(pnp_dr_iter,10)
+        #convert_and_save_single_MNIST_image(pnp_dr_state.xhat,"./scripts/temp/","iteration_$i")
+        #println(norm(test_x_vec - pnp_dr_state.xhat))
+        println(norm(pnp_dr_state.res))
         i+=1
     end
 
@@ -125,7 +129,8 @@ function run_example_2()
     for pnp_dr_state in Iterators.take(pnp_dr_iter,50)
         #convert_and_save_single_MNIST_image(clamp.(pnp_dr_state.xhat,0.0,1.0),"./scripts/temp/run_example2/","iteration_$i")
         resize_and_save_single_MNIST_image(clamp.(pnp_dr_state.xhat,0.0,1.0),"./scripts/temp/run_example2/","iteration_$i")
-        println(norm(test_x_vec[:] - pnp_dr_state.xhat))
+        println(norm(state.res))
+        #println(norm(test_x_vec[:] - pnp_dr_state.xhat))
         #println(norm(pnp_dr_state.xhat))
         i+=1
     end
@@ -218,3 +223,127 @@ function run_denoising_example()
 
 end
 
+
+function run_example_4()
+    T = Float32
+    A = T[
+        1.0 -2.0 3.0 -4.0 5.0
+        2.0 -1.0 0.0 -1.0 3.0
+        -1.0 0.0 4.0 -3.0 2.0
+        -1.0 -1.0 -1.0 1.0 3.0
+    ]
+    b = T[1.0, 2.0, 3.0, 4.0]
+
+    m, n = size(A)
+
+    R = real(T)
+
+    lam = R(0.1) * norm(A' * b, Inf)
+
+    f = LeastSquares(A, b)
+    g = NormL1(lam)
+
+    x0 = zeros(R, n) # initial point of zero
+
+    gamma=R(10) / opnorm(A)^2
+    gamma = R(1) # gamma doesn't currently do anything in the algorithm!
+
+    proxf!(xhat,uhat) = prox!(xhat,f,uhat,gamma) 
+    denoiser!(yhat,rhat) = prox!(yhat,g,rhat,gamma)
+
+    #dr_iter = DouglasRachfordIteration(f=f, g=g, x0=x0, gamma=gamma)
+
+    #pnp_dr_iter = PnpDrsIteration(proxf! = proxf!, denoiser! = denoiser!, uhat0 = x0, gamma = gamma)
+
+    pnp_dr_iter2 = PnpDrsIteration2(proxf! = proxf!, denoiser! = denoiser!, x0 = x0, gamma = gamma)
+
+    
+    #for pnp_dr_state in Iterators.take(pnp_dr_iter, 15)
+    #    println(norm(pnp_dr_state.res))
+    #end
+
+    for pnp_dr_state in Iterators.take(pnp_dr_iter2, 10)
+        println(norm(pnp_dr_state.dualres)) #should go to zero, stalls around 1.4578023
+        println(norm(pnp_dr_state.x_tilde_prev))
+        #println(norm(pnp_dr_state.μ - pnp_dr_state.ν))
+    end
+end
+
+
+struct NegativeConjugate{T}
+    c::Conjugate{T}
+end
+
+
+function prox!(y, nc::NegativeConjugate, x, gamma)
+    prox!(y,nc.c,-x,gamma)
+end
+
+
+
+# trying ADMM in place of Douglas Rachford
+function run_example_5()
+    
+    T = Float32
+    A = T[
+        1.0 -2.0 3.0 -4.0 5.0
+        2.0 -1.0 0.0 -1.0 3.0
+        -1.0 0.0 4.0 -3.0 2.0
+        -1.0 -1.0 -1.0 1.0 3.0
+    ]
+    
+    b = T[1.0, 2.0, 3.0, 4.0]
+    #b = T[0.0, 0.0, 0.0, 0.0]
+
+    m, n = size(A)
+
+    R = real(T)
+    lam = R(0.1) * norm(A' * b, Inf)
+
+    f = LeastSquares(A, b)
+    g = NormL1(lam)
+
+    fdual = NegativeConjugate(Conjugate(f))
+
+    gdual = Conjugate(g)
+
+    x0 = zeros(R, n)
+
+
+    #gamma=R(10) / opnorm(A)^2
+
+    #gamma= R(10) bigger gamma seems to make dualres bigger
+
+    gamma = R(1)
+
+    #proxf!(xhat,uhat) = prox!(xhat,f,uhat,gamma) 
+    proxf!(xhat,uhat) = prox!(xhat,fdual,uhat,gamma) 
+
+    #denoiser!(yhat,rhat) = prox!(yhat,g,rhat,gamma)
+    denoiser!(yhat,rhat) = prox!(yhat,gdual,rhat,gamma)
+
+
+
+    #proxf!(xhat,uhat) = prox!(xhat,f,uhat,gamma) #in place prox updates xhat
+    #denoiser!(yhat,rhat) = prox!(yhat,g,rhat,gamma) #rhat^{k+1} = 2xhat^{k+1} - uhat^{k}
+
+    #dr_iter = DouglasRachfordIteration(f=f, g=g, x0=x0, gamma=gamma)
+    admm_iter = AdmmIteration(f = f, g = g, x0 = x0, gamma = gamma)
+    
+    pnp_dr_iter2 = PnpDrsIteration2(proxf! = proxf!, denoiser! = denoiser!, x0 = x0, gamma = gamma)
+    
+    for admm_state in Iterators.take(admm_iter, 10)
+        println(norm(admm_state.dualres))
+        #println(norm(admm_state.y))
+        #println(norm(admm_state.x))
+        #println(norm(admm_state.y))
+    end
+
+    for pnp_dr_state in Iterators.take(pnp_dr_iter2, 100)
+        #println(norm(pnp_dr_state.dualres)) #should go to zero, stalls around 1.4578023
+        #println(norm(pnp_dr_state.y_tilde))
+        #println(norm(pnp_dr_state.x_tilde))
+        println(norm(pnp_dr_state.μ - pnp_dr_state.ν))
+    end
+
+end

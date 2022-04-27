@@ -54,6 +54,7 @@ include("algorithms/li_lin.jl")
 include("algorithms/fista.jl")
 include("algorithms/panocplus.jl")
 include("algorithms/pnp_douglas_rachford.jl")
+include("algorithms/admm.jl")
 
 
 end # module
