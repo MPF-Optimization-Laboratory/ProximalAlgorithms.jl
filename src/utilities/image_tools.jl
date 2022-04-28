@@ -15,12 +15,12 @@ end
 
 function resize_and_save_single_MNIST_image(x,save_dir::String,filename::String)
     #save(joinpath( save_dir, "$filename.png", colorview(Gray, reshape(x, 28,28)') )
-    save(joinpath( save_dir, "$filename.png"), colorview(Gray, reshape(x, 28,28)') )
+    save(joinpath( save_dir, "$filename.png"), colorview(Gray, reshape(clamp.(x,0,1), 28,28)') )
 end
 
 
 function convert_and_save_single_MNIST_image(x,save_dir::String,filename::String)
-    save( joinpath(save_dir, "$filename.png"), MNIST.convert2image(x) )
+    save( joinpath(save_dir, "$filename.png"), MNIST.convert2image(clamp.(x,0,1)) )
 end
 
 
