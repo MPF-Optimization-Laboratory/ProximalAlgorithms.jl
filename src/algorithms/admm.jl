@@ -23,7 +23,7 @@ Base.@kwdef struct AdmmIteration{R,C<:Union{R,Complex{R}},Tx<:AbstractArray{C},T
     f::Tf = Zero()
     g::Tg = Zero()
     x0::Tx
-    gamma::R
+    gamma::R   
 end
 
 
@@ -33,14 +33,13 @@ Base.IteratorSize(::Type{<:AdmmIteration}) = Base.IsInfinite()
 Base.@kwdef struct AdmmState{Tx}
     x::Tx
     y::Tx = similar(x) #empty
-    #r::Tx = similar(xhat)
     u::Tx = similar(x)
     dualres::Tx = similar(x)
 end
 
 
-function Base.iterate(iter::AdmmIteration, state::AdmmState = AdmmState(x=copy(iter.x0),u=copy(iter.x0)), y = copy(iter.x0))
-    prox!(state.x,iter.f,(state.y .- state.u),iter.gamma)
+function Base.iterate(iter::AdmmIteration, state::AdmmState = AdmmState(x=copy(iter.x0),y=copy(iter.x0),u=copy(iter.x0)),dualres=copy(iter.x0))
+    prox!(state.x,iter.f,(state.y .- state.u), iter.gamma)
     prox!(state.y,iter.g, (state.x .+ state.u), iter.gamma)
     state.dualres .= state.x .- state.y
     state.u .+= state.dualres
