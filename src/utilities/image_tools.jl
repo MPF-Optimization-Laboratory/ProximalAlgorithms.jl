@@ -2,6 +2,7 @@ using FileIO
 using ImageIO
 using MLDatasets
 using ImageCore
+using LinearAlgebra
 
 
 function save_MNIST_images(x_batch, save_dir::String, prefix::String)
@@ -58,4 +59,11 @@ end
 
 function add_additive_noise(x_in)
     x_out = x_in + randn(length(x_in))
+end
+
+
+function rank_approx(F::SVD, k)
+    U, S, V = F
+    M = U[:, 1:k] * Diagonal(S[1:k]) * V[:, 1:k]'
+    clamp01!(M)
 end
