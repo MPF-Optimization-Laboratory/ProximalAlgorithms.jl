@@ -57,15 +57,18 @@ function reconstruct_images(encoder_μ, encoder_logvar, decoder, x)
 end
 
 
-function decoder_loss_function(z_variable,decoder,y_noisy)
+function decoder_loss_function(z_variable, decoder, y_noisy)
     return 0.5*norm(y_noisy - decoder(z_variable))^2
 end
 
 # TO DO: rewrite as iterator
-function gradient_descent(loss_function,z0,decoder,y_noisy,maxit)
+function gradient_descent(loss_function, z0, decoder, y_noisy, maxit, stepsize_numerator)
     zk = z0
-    for t in 1:maxit
-        zk .= zk + (1/sqrt(t))*Zygote.gradient(z -> loss_function(z,decoder,y_noisy), zk)[1]
+    for t in 0:maxit
+        loss_k = loss_function(zk, decoder, y_noisy)
+        println("at iteration $t loss is $loss_k \n")
+        resize_and_save_single_MNIST_image(clamp.(decoder(zk), 0.0, 1.0), "./scripts/temp/run_denoising", "during_GD_$t")
+        zk .= zk - (stepsize_numerator/sqrt(t+1))*Zygote.gradient(z -> loss_function(z, decoder, y_noisy), zk)[1]
     end
     return zk
 end
@@ -85,4 +88,23 @@ mutable struct denoising_problem
     decoder # D
 end
 
-Base.iterate
+
+function decoder_denoiser!(x,y,encoder_μ, encoder_logvar, decoder)
+    #TO DO: load model outside of denoiser otherwise it's slow
+    #model_epoch_number = 20
+    #model_dir = "./src/utilities/saved_models/MNIST"
+    #encoder_μ, encoder_logvar, decoder = load_model(model_dir,model_epoch_number)
+    #resize_and_save_single_MNIST_image(y_curr,"./scripts/temp/denoising_decoder","before_denoising")
+    loss_function = decoder_loss_function
+    
+    # as an initial point for gradient descent, take the current iterate (y) and apply encoder
+    μ = encoder_μ(y)
+    logvar = encoder_logvar(y)
+    z0 = μ + randn(Float32, size(logvar)) .* exp.(0.5f0 * logvar)
+    
+    num_iter = 20 #number of iterations of gradient descent
+    
+    z_out = gradient_descent(loss_function,z0,decoder,y,num_iter,0.05)
+    
+    x = decoder(z_out)
+end
