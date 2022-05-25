@@ -13,15 +13,16 @@ function save_MNIST_images(x_batch, save_dir::String, prefix::String)
     end
 end
 
-
+# TO DO: remove clamp?
 function resize_and_save_single_MNIST_image(x,save_dir::String,filename::String)
-    #save(joinpath( save_dir, "$filename.png", colorview(Gray, reshape(x, 28,28)') )
-    save(joinpath( save_dir, "$filename.png"), colorview(Gray, reshape(clamp.(x,0,1), 28,28)') )
+    save( joinpath(save_dir, "$filename.png"), colorview(Gray, reshape(x, 28, 28)') )
+    #save(joinpath( save_dir, "$filename.png"), colorview(Gray, reshape(clamp.(x,0,1), 28,28)') )
 end
 
 
 function convert_and_save_single_MNIST_image(x,save_dir::String,filename::String)
-    save( joinpath(save_dir, "$filename.png"), MNIST.convert2image(clamp.(x,0,1)) )
+    #save( joinpath(save_dir, "$filename.png"), MNIST.convert2image(clamp.(x,0,1)) )
+    save(joinpath(save_dir, "$filename.png"), MNIST.convert2image(x)) 
 end
 
 
@@ -59,6 +60,10 @@ end
 
 function add_additive_noise(x_in)
     x_out = x_in + randn(length(x_in))
+end
+
+function add_additive_noise(x_in,scale_factor)
+    x_out = x_in + scale_factor*randn(length(x_in))
 end
 
 

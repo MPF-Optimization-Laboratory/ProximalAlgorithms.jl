@@ -70,7 +70,7 @@ end
 
 function Base.iterate(iter::PnpDrsIteration, state::PnpDrsState = PnpDrsState(z=copy(iter.z0)))
     iter.J_B!(state.x,state.z)
-    state.r .= 2 .*state.x .- state.z
+    @. state.r = 2 *state.x - state.z
     iter.J_A!(state.y,state.r)
     state.res .= state.y .- state.x
     state.z .+= state.res
