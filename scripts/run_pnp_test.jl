@@ -66,24 +66,13 @@ function run_example_1()
 
     #lam = R(0.1) * norm(A' * b, Inf)
     #z0 = zeros(R, m*n)
-    z0 = ones(m*n)*R(0.5) 
-
-
-    #x0 = test_x_vec[:]
-    #gamma = R(10) / opnorm(A)^2 # constant parameter for douglas rachford
-    #gamma = R(0.1) #trying different values of gamma
+    u0 = ones(m*n)*R(0.5) 
     gamma = R(1)
-    #println("\n gamma is $gamma \n")
-    # forward operator
-    #function proxf!(x,z)
-    #    prox!(x, f, z, gamma)
-    #    x1 = (x .- min(0, minimum(x)))
-    #    x .= x1 / maximum(x1)
-    #end
+
 
     proxf!(x, u) = prox!(x, f, u, gamma)
 
-    pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = vae_denoiser!, z0 = z0)
+    pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = vae_denoiser!, u0 = u0)
 
     # TO DO: find a useful way to look at output
     for (i, pnp_dr_state) in enumerate(Iterators.take(pnp_dr_iter,50))
@@ -130,7 +119,7 @@ function run_example_2()
     f = LeastSquares(A, b)
 
     #lam = R(0.1) * norm(A' * b, Inf)
-    x0 = zeros(R, m*n)
+    u0 = zeros(R, m*n)
     #x0 = test_x_vec[:]
     gamma = R(10) / opnorm(A)^2 # constant parameter used douglas rachford examples for scaling the l1 norm regularizer
     gamma = R(1)
@@ -139,7 +128,7 @@ function run_example_2()
     # forward operator
     proxf!(x,u) = prox!(x,f,u,gamma)
     
-    pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = vae_denoiser!, z0 = x0)
+    pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = vae_denoiser!, u0 = u0)
 
     i = 0
     # TO DO: find a useful way to look at output
@@ -189,15 +178,15 @@ function run_example_3()
     f = LeastSquares(A, b)
 
     #lam = R(0.1) * norm(A' * b, Inf)
-    x0 = zeros(R, m*n)
+    u0 = zeros(R, m*n)
     #gamma = R(10) / opnorm(A)^2 # constant parameter for douglas rachford using g is the l1 norm
     gamma = 1.0f0
     println("\n gamma is $gamma \n")
 
     # forward operator
-    proxf!(xhat,uhat) = prox!(xhat,f,uhat,gamma)
+    proxf!(x,u) = prox!(x,f,u,gamma)
     
-    pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = identity_denoiser!, z0 = x0)
+    pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = identity_denoiser!, u0 = u0)
 
     i = 0
     for pnp_dr_state in Iterators.take(pnp_dr_iter,50)
@@ -272,7 +261,7 @@ function run_example_4()
     f = LeastSquares(A, b)
     g = NormL1(lam)
 
-    z0 = zeros(R, n) # initial point of zero
+    u0 = zeros(R, n) # initial point of zero
 
     gamma=R(10) / opnorm(A)^2
     gamma = R(1) # gamma doesn't currently do anything in the algorithm!
@@ -280,7 +269,7 @@ function run_example_4()
     proxf!(x,z) = prox!(x,f,z,gamma) 
     denoiser!(y,r) = prox!(y,g,r,gamma)
 
-    pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = denoiser!, z0 = z0)
+    pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = denoiser!, u0 = u0)
 
     
     for pnp_dr_state in Iterators.take(pnp_dr_iter, 30)
@@ -324,7 +313,7 @@ function run_example_5()
     fdual = NegativeConjugate(Conjugate(f))
     gdual = Conjugate(g)
 
-    x0 = zeros(R, n)
+    u0 = zeros(R, n)
 
     #gamma=R(10) / opnorm(A)^2
     #gamma= R(10) 
@@ -337,8 +326,8 @@ function run_example_5()
     #denoiser!(x,u) = prox!(x,gdual,u,gamma) #apply DRS to dual problem
 
     #dr_iter = DouglasRachfordIteration(f=f, g=g, x0=x0, gamma=gamma)
-    admm_iter = AdmmIteration(f = f, g = g, x0 = x0, gamma = gamma)
-    pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = denoiser!, z0 = x0)
+    admm_iter = AdmmIteration(f = f, g = g, x0 = u0, gamma = gamma)
+    pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = denoiser!, u0 = u0)
     
     for (admm_state, pnp_dr_state) in Iterators.take(zip(admm_iter, pnp_dr_iter), 30)
         #println(norm(admm_state.u)) # converges to 2.072
@@ -392,8 +381,9 @@ function run_example_6()
 
     f = LeastSquares(A, b)
     #z0 = zeros(R, m*n)
-    z0 = ones(m*n)*R(0.5) 
+    u0 = ones(m*n)*R(0.5) 
     gamma = R(1)
+    
 
     #function proxf!(x,z)
     #    prox!(x, f, z, gamma)
@@ -407,7 +397,7 @@ function run_example_6()
     denoiser!(x, u) = decoder_denoiser!(x,u,encoder_μ, encoder_logvar, decoder, num_iter)
 
 
-    pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = denoiser!, z0 = z0)
+    pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = denoiser!, u0 = u0)
 
     for (i, pnp_dr_state) in enumerate(Iterators.take(pnp_dr_iter,30))
         println("at PnP iteration $i")
