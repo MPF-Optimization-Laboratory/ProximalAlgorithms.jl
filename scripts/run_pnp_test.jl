@@ -1,7 +1,7 @@
 # this is a temporary script for trying out pnp algorithms on images
 
-
 import ProximalOperators.prox!
+import Random.seed!
 
 # run from ProximalAlgorithms.jl folder, e.g.  /home/naomigra/projects/def-mpf/naomigra/2022/pnp_IR/dev/ProximalAlgorithms.jl
 include("../src/utilities/denoisers.jl")
@@ -14,12 +14,14 @@ using ProximalOperators
 using MLDatasets
 using Flux
 using Zygote
+using Random
 
 
 # need a function to run PnP DR on a single example with various gamma, number of iterations, 
 
 function run_example_1()
-    T = Float32 #single precision
+    Random.seed!(1)
+    T = Float64 #double precision
     R = real(T)
     k = 0.8 # how much we want to reduce (scale) max rank of A
 
@@ -63,22 +65,28 @@ function run_example_1()
     f = LeastSquares(A, b)
 
     #lam = R(0.1) * norm(A' * b, Inf)
-    z0 = zeros(R, m*n)
+    #z0 = zeros(R, m*n)
+    z0 = ones(m*n)*R(0.5) 
+
+
     #x0 = test_x_vec[:]
     #gamma = R(10) / opnorm(A)^2 # constant parameter for douglas rachford
     #gamma = R(0.1) #trying different values of gamma
     gamma = R(1)
-    println("\n gamma is $gamma \n")
+    #println("\n gamma is $gamma \n")
     # forward operator
-    function proxf!(x,z)
-        prox!(x, f, z, gamma)
-        x1 = (x .- min(0, minimum(x)))
-        x .= x1 / maximum(x1)
-    end
+    #function proxf!(x,z)
+    #    prox!(x, f, z, gamma)
+    #    x1 = (x .- min(0, minimum(x)))
+    #    x .= x1 / maximum(x1)
+    #end
+
+    proxf!(x, u) = prox!(x, f, u, gamma)
+
     pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = vae_denoiser!, z0 = z0)
 
     # TO DO: find a useful way to look at output
-    for (i, pnp_dr_state) in enumerate(Iterators.take(pnp_dr_iter,30))
+    for (i, pnp_dr_state) in enumerate(Iterators.take(pnp_dr_iter,50))
         println("iteration $i")
         println(norm(pnp_dr_state.res))
         println("\n")
@@ -203,6 +211,7 @@ end
 
 # temporary function for trying the optimized decoder denoiser
 function run_denoising_example()
+    Random.seed!(1)
     example_index = 11
     test_x, test_y = MNIST.testdata(Float32,example_index)
 
@@ -217,7 +226,6 @@ function run_denoising_example()
     z0 = add_additive_noise(ones(20)) #initial point for gradient descent
 
     #z0 = zeros(20)
-
     #alternate starting point
     #μ = encoder_μ(test_x_vec)
     #logvar = encoder_logvar(test_x_vec)
@@ -235,9 +243,8 @@ function run_denoising_example()
 
 
     loss_function = decoder_loss_function
-
     
-    num_iter = 20 #number of iterations of gradient descent
+    num_iter = 1000 #number of iterations of gradient descent
     z_out = gradient_descent(loss_function,z0,decoder,y_noisy,num_iter,0.05)
     
     x_out = decoder(z_out)
@@ -346,22 +353,27 @@ end
 
 
 function run_example_6()
-    T = Float32 #single precision
+    Random.seed!(2)
+    T = Float64 #single precision
     R = real(T)
-    k = 0.8 # how much we want to reduce (scale) max rank of A
 
-    example_index = 11
+    # take an example image from the test data set
+    example_index = 10
     test_x, test_y = MNIST.testdata(Float32,example_index)
 
+    # vectorize image and save ground truth for comparison
     test_x_vec = vectorize_and_flip(test_x)[:]
-    resize_and_save_single_MNIST_image(test_x_vec,"./scripts/temp/run_denoising","clean_img")
+    resize_and_save_single_MNIST_image(test_x_vec,"./scripts/temp/run_example6","ground_truth")
 
+    # load the VAE model
     model_epoch_number = 20
     model_dir = "./src/utilities/saved_models/MNIST"
     encoder_μ, encoder_logvar, decoder = load_model(model_dir,model_epoch_number)
 
     test_x, test_y = MNIST.testdata(Float32,example_index)
     
+    # generate a random low rank matrix
+    k = 0.8 # how much we want to reduce (scale) max rank of A
     m,n = size(test_x)
     A_full_rank = randn(T, (m*n, m*n)) #randn performs better than rand
     max_rank = Int64(floor(m*n*k))
@@ -370,21 +382,17 @@ function run_example_6()
     for i in max_rank:(m*n)
         F.S[i] = 0
     end
-
-    A = (F.U * Diagonal(F.S) * F.Vt)/100
-
+    A = (F.U * Diagonal(F.S) * F.Vt)
     A = diagm(m*n, m*n, ones(T, m*n))
 
-    test_x_vec = vectorize_and_flip(test_x)
-    
-    convert_and_save_single_MNIST_image(test_x_vec[:],"./scripts/temp/run_example6","ground_truth")
-
     # add noise to x instead of Ax
-    b = A*(test_x_vec[:] + randn(T, (length(test_x_vec[:]))))
-    
-    #b = b + randn(T,Int64(length(b))) #adding noise
+    #b = A*(test_x_vec[:] + randn(T, (length(test_x_vec[:]))))
+    b = A*(test_x_vec[:])
+    b = b + randn(T,Int64(length(b))) #adding noise
+
     f = LeastSquares(A, b)
-    z0 = zeros(R, m*n)
+    #z0 = zeros(R, m*n)
+    z0 = ones(m*n)*R(0.5) 
     gamma = R(1)
 
     #function proxf!(x,z)
@@ -393,17 +401,20 @@ function run_example_6()
     #    x .= x1 / maximum(x1)
     #end
 
-    proxf!(x,u) = prox!(x,f,u,gamma)
+    proxf!(x, u) = prox!(x, f, u, gamma)
 
-    denoiser!(x,y) = decoder_denoiser!(x,y,encoder_μ, encoder_logvar, decoder)
+    num_iter = 20 # number of iterations of GD in the denoiser
+    denoiser!(x, u) = decoder_denoiser!(x,u,encoder_μ, encoder_logvar, decoder, num_iter)
 
 
     pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = denoiser!, z0 = z0)
 
     for (i, pnp_dr_state) in enumerate(Iterators.take(pnp_dr_iter,30))
-        println("iteration $i")
-        println(norm(pnp_dr_state.res))
-        println("\n")
+        println("at PnP iteration $i")
+        println("the residual value is $(norm(pnp_dr_state.res)) \n")
+        #println("an intermediate value is $(norm(pnp_dr_state.r)) \n")
+        #println("norm of y iterate is $(norm(pnp_dr_state.y)) \n")
+        println("Saving output...")
         #convert_and_save_single_MNIST_image(pnp_dr_state.x,"./scripts/temp/run_example6/","iteration_$i")
         resize_and_save_single_MNIST_image(pnp_dr_state.x,"./scripts/temp/run_example6/","iteration_$i")
         #println(norm(pnp_dr_state.res))
