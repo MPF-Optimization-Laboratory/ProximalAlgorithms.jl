@@ -50,7 +50,7 @@ function run_example_1()
 
     A = (F.U * Diagonal(F.S) * F.Vt)/100
 
-    A = diagm(m*n, m*n, ones(T, m*n))
+    # using identity A = diagm(m*n, m*n, ones(T, m*n))
 
     test_x_vec = vectorize_and_flip(test_x)
     
@@ -75,7 +75,7 @@ function run_example_1()
     pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = vae_denoiser!, u0 = u0)
 
     # TO DO: find a useful way to look at output
-    for (i, pnp_dr_state) in enumerate(Iterators.take(pnp_dr_iter,50))
+    for (i, pnp_dr_state) in enumerate(Iterators.take(pnp_dr_iter,20))
         println("iteration $i")
         println(norm(pnp_dr_state.res))
         println("\n")
@@ -89,13 +89,12 @@ function run_example_1()
 end
 
 
-
 function run_example_2()
     T = Float32
     R = real(T)
-    k = 0.5 # ratio of rows to columns
+    k = 0.1 # ratio of rows to columns
 
-    example_index = 11
+    example_index = 10
     model_epoch_number = 20
     model_dir = "./src/utilities/saved_models/MNIST"
     encoder_μ, encoder_logvar, decoder = load_model(model_dir,model_epoch_number)
@@ -108,20 +107,22 @@ function run_example_2()
 
     test_x, test_y = MNIST.testdata(Float32,example_index)
     test_x_vec = vectorize_and_flip(test_x)
-    convert_and_save_single_MNIST_image(test_x_vec[:],"./scripts/temp/run_example2","ground_truth")
-
+    #convert_and_save_single_MNIST_image(test_x_vec[:],"./scripts/temp/run_example2","ground_truth")
+    resize_and_save_single_MNIST_image(test_x_vec[:], "./scripts/temp/run_example2","ground_truth")
 
     m,n = size(test_x)
     A = randn(T, Int64(floor(m*n*k)), (m*n)) # wide matrix
+    print("\n",size(A))
     # b = Ax + noise
-    b = A*test_x_vec[:] + randn(T,Int64(floor(m*n*k)) ) 
+    b = A*test_x_vec[:] + randn(T, Int64(floor(m*n*k)))
+    #b = A*(test_x_vec[:] + randn(T, Int64(floor(m*n*k))))
 
     f = LeastSquares(A, b)
 
     #lam = R(0.1) * norm(A' * b, Inf)
     u0 = zeros(R, m*n)
     #x0 = test_x_vec[:]
-    gamma = R(10) / opnorm(A)^2 # constant parameter used douglas rachford examples for scaling the l1 norm regularizer
+    #gamma = R(10) / opnorm(A)^2 # constant parameter used douglas rachford examples for scaling the l1 norm regularizer
     gamma = R(1)
     println("gamma is", gamma)
 
@@ -132,7 +133,7 @@ function run_example_2()
 
     i = 0
     # TO DO: find a useful way to look at output
-    for pnp_dr_state in Iterators.take(pnp_dr_iter,10)
+    for pnp_dr_state in Iterators.take(pnp_dr_iter,30)
         #convert_and_save_single_MNIST_image(clamp.(pnp_dr_state.xhat,0.0,1.0),"./scripts/temp/run_example2/","iteration_$i")
         resize_and_save_single_MNIST_image(pnp_dr_state.x,"./scripts/temp/run_example2/","iteration_$i")
         println(norm(pnp_dr_state.res))
@@ -372,7 +373,7 @@ function run_example_6()
         F.S[i] = 0
     end
     A = (F.U * Diagonal(F.S) * F.Vt)
-    A = diagm(m*n, m*n, ones(T, m*n))
+    #A = diagm(m*n, m*n, ones(T, m*n))
 
     # add noise to x instead of Ax
     #b = A*(test_x_vec[:] + randn(T, (length(test_x_vec[:]))))
@@ -409,6 +410,67 @@ function run_example_6()
         resize_and_save_single_MNIST_image(pnp_dr_state.x,"./scripts/temp/run_example6/","iteration_$i")
         #println(norm(pnp_dr_state.res))
         #i+=1
+    end
+
+
+end
+
+
+
+function run_example_7()
+    # this is like the previous example but with a rectangular matrix instead of low rank
+    T = Float32
+    R = real(T)
+    k = 0.5 # ratio of rows to columns
+
+    example_index = 11
+    model_epoch_number = 20
+    model_dir = "./src/utilities/saved_models/MNIST"
+    encoder_μ, encoder_logvar, decoder = load_model(model_dir,model_epoch_number)
+
+    # backward operator (denoiser)
+    #function vae_denoiser!(x,y)
+    #    # defining the denoiser this way so that it has the same format as prox!
+    #    x .= reconstruct_images(encoder_μ, encoder_logvar, decoder,y)
+    #end
+
+    test_x, test_y = MNIST.testdata(Float32,example_index)
+    test_x_vec = vectorize_and_flip(test_x)
+    convert_and_save_single_MNIST_image(test_x_vec[:],"./scripts/temp/run_example2","ground_truth")
+
+    # forward model is the same as in example 2
+    m,n = size(test_x)
+    A = randn(T, Int64(floor(m*n*k)), (m*n)) # wide matrix
+    # b = Ax + noise
+    b = A*test_x_vec[:] + randn(T,Int64(floor(m*n*k)) ) 
+
+    f = LeastSquares(A, b)
+
+    #lam = R(0.1) * norm(A' * b, Inf)
+    u0 = zeros(R, m*n)
+    #x0 = test_x_vec[:]
+    gamma = R(10) / opnorm(A)^2 # constant parameter used douglas rachford examples for scaling the l1 norm regularizer
+    gamma = R(1)
+    println("gamma is", gamma)
+
+    # forward operator
+    proxf!(x,u) = prox!(x,f,u,gamma)
+
+
+    num_iter = 20 # number of iterations of GD in the denoiser
+    denoiser!(x, u) = decoder_denoiser!(x,u,encoder_μ, encoder_logvar, decoder, num_iter)
+    
+    pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = vae_denoiser!, u0 = u0)
+
+    i = 0
+    # TO DO: find a useful way to look at output
+    for pnp_dr_state in Iterators.take(pnp_dr_iter,10)
+        #convert_and_save_single_MNIST_image(clamp.(pnp_dr_state.xhat,0.0,1.0),"./scripts/temp/run_example2/","iteration_$i")
+        resize_and_save_single_MNIST_image(pnp_dr_state.x,"./scripts/temp/run_example2/","iteration_$i")
+        println(norm(pnp_dr_state.res))
+        #println(norm(test_x_vec[:] - pnp_dr_state.xhat))
+        #println(norm(pnp_dr_state.xhat))
+        i+=1
     end
 
 
