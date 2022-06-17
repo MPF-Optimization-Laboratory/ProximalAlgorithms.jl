@@ -9,12 +9,14 @@ include("../src/utilities/image_tools.jl")
 include("../src/algorithms/pnp_douglas_rachford.jl")
 include("../src/algorithms/admm.jl")
 
+using Flux: onehotbatch, crossentropy, gradient
 using LinearAlgebra
 using ProximalOperators
 using MLDatasets
 using Flux
 using Zygote
 using Random
+using Optim
 
 
 # need a function to run PnP DR on a single example with various gamma, number of iterations, 
@@ -320,10 +322,10 @@ function run_example_5()
     #gamma= R(10) 
     gamma = R(1)
 
-    proxf!(x,u) = prox!(x,f,u,gamma) 
+    proxf!(x, u) = prox!(x, f, u, gamma) 
     #proxf!(x,u) = prox!(x,fdual,u,gamma) #apply DRS to dual problem 
 
-    denoiser!(x,u) = prox!(x,g,u,gamma)
+    denoiser!(x, u) = prox!(x, g, u, gamma)
     #denoiser!(x,u) = prox!(x,gdual,u,gamma) #apply DRS to dual problem
 
     #dr_iter = DouglasRachfordIteration(f=f, g=g, x0=x0, gamma=gamma)
@@ -349,18 +351,18 @@ function run_example_6()
 
     # take an example image from the test data set
     example_index = 10
-    test_x, test_y = MNIST.testdata(Float32,example_index)
+    test_x, test_y = MNIST.testdata(Float32, example_index)
 
     # vectorize image and save ground truth for comparison
     test_x_vec = vectorize_and_flip(test_x)[:]
-    resize_and_save_single_MNIST_image(test_x_vec,"./scripts/temp/run_example6","ground_truth")
+    resize_and_save_single_MNIST_image(test_x_vec, "./scripts/temp/run_example6", "ground_truth")
 
     # load the VAE model
     model_epoch_number = 20
     model_dir = "./src/utilities/saved_models/MNIST"
-    encoder_μ, encoder_logvar, decoder = load_model(model_dir,model_epoch_number)
+    encoder_μ, encoder_logvar, decoder = load_model(model_dir, model_epoch_number)
 
-    test_x, test_y = MNIST.testdata(Float32,example_index)
+    test_x, test_y = MNIST.testdata(Float32, example_index)
     
     # generate a random low rank matrix
     k = 0.8 # how much we want to reduce (scale) max rank of A
@@ -395,7 +397,7 @@ function run_example_6()
     proxf!(x, u) = prox!(x, f, u, gamma)
 
     num_iter = 20 # number of iterations of GD in the denoiser
-    denoiser!(x, u) = decoder_denoiser!(x,u,encoder_μ, encoder_logvar, decoder, num_iter)
+    denoiser!(x, u) = decoder_denoiser!(x, u, encoder_μ, encoder_logvar, decoder, num_iter)
 
 
     pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = denoiser!, u0 = u0)
@@ -407,7 +409,7 @@ function run_example_6()
         #println("norm of y iterate is $(norm(pnp_dr_state.y)) \n")
         println("Saving output...")
         #convert_and_save_single_MNIST_image(pnp_dr_state.x,"./scripts/temp/run_example6/","iteration_$i")
-        resize_and_save_single_MNIST_image(pnp_dr_state.x,"./scripts/temp/run_example6/","iteration_$i")
+        resize_and_save_single_MNIST_image(pnp_dr_state.x, "./scripts/temp/run_example6/", "iteration_$i")
         #println(norm(pnp_dr_state.res))
         #i+=1
     end
@@ -426,7 +428,7 @@ function run_example_7()
     example_index = 11
     model_epoch_number = 20
     model_dir = "./src/utilities/saved_models/MNIST"
-    encoder_μ, encoder_logvar, decoder = load_model(model_dir,model_epoch_number)
+    encoder_μ, encoder_logvar, decoder = load_model(model_dir, model_epoch_number)
 
     # backward operator (denoiser)
     #function vae_denoiser!(x,y)
@@ -434,9 +436,9 @@ function run_example_7()
     #    x .= reconstruct_images(encoder_μ, encoder_logvar, decoder,y)
     #end
 
-    test_x, test_y = MNIST.testdata(Float32,example_index)
+    test_x, test_y = MNIST.testdata(Float32, example_index)
     test_x_vec = vectorize_and_flip(test_x)
-    convert_and_save_single_MNIST_image(test_x_vec[:],"./scripts/temp/run_example2","ground_truth")
+    convert_and_save_single_MNIST_image(test_x_vec[:], "./scripts/temp/run_example2","ground_truth")
 
     # forward model is the same as in example 2
     m,n = size(test_x)
@@ -454,24 +456,94 @@ function run_example_7()
     println("gamma is", gamma)
 
     # forward operator
-    proxf!(x,u) = prox!(x,f,u,gamma)
+    proxf!(x, u) = prox!(x, f, u, gamma)
 
 
     num_iter = 20 # number of iterations of GD in the denoiser
-    denoiser!(x, u) = decoder_denoiser!(x,u,encoder_μ, encoder_logvar, decoder, num_iter)
+    denoiser!(x, u) = decoder_denoiser!(x, u, encoder_μ, encoder_logvar, decoder, num_iter)
     
     pnp_dr_iter = PnpDrsIteration(J_A! = proxf!, J_B! = vae_denoiser!, u0 = u0)
 
     i = 0
     # TO DO: find a useful way to look at output
-    for pnp_dr_state in Iterators.take(pnp_dr_iter,10)
+    for pnp_dr_state in Iterators.take(pnp_dr_iter, 10)
         #convert_and_save_single_MNIST_image(clamp.(pnp_dr_state.xhat,0.0,1.0),"./scripts/temp/run_example2/","iteration_$i")
-        resize_and_save_single_MNIST_image(pnp_dr_state.x,"./scripts/temp/run_example2/","iteration_$i")
+        resize_and_save_single_MNIST_image(pnp_dr_state.x, "./scripts/temp/run_example2/","iteration_$i")
         println(norm(pnp_dr_state.res))
         #println(norm(test_x_vec[:] - pnp_dr_state.xhat))
         #println(norm(pnp_dr_state.xhat))
         i+=1
     end
 
+
+end
+
+
+function run_example_8()
+
+    T = Float32
+    R = real(T)
+    k = 0.5 # ratio of rows to columns
+
+    example_index = 11
+    model_epoch_number = 20
+    model_dir = "./src/utilities/saved_models/MNIST"
+    encoder_μ, encoder_logvar, decoder = load_model(model_dir, model_epoch_number)
+
+    test_x, test_y = MNIST.testdata(Float32, example_index)
+    test_x_vec = vectorize_and_flip(test_x)
+    m,n = size(test_x)
+
+    convert_and_save_single_MNIST_image(test_x_vec[:], "./scripts/temp/run_example8", "ground_truth")
+    
+    A = randn(T, Int64(floor(m*n*k)), (m*n)) # wide matrix
+
+    #reflip
+    test_x_vec .= 1 .- test_x_vec
+
+    # b = Ax + noise
+    b = A*test_x_vec[:] + randn(T, Int64(floor(m*n*k))) 
+
+    # load model
+    @printf("load model ... ")
+    @load "model_mnist.bson" model
+    @printf("done\n")
+
+    # loss function 
+    loss(x, y) = crossentropy(model(x), y)
+
+    # objective
+    λ = 0.3; r(x) = λ*loss(x, test_y); f(x) = norm(A*x - b)^2/2 + r(x)
+
+    g(x) =  A'*(A*x - b) + Flux.gradient(r, x)[1]
+
+    # constraint
+    lower = zeros(784); upper = ones(784)
+    # initial point
+    x0 = ones(784)/2
+    # solve the optimization problem
+    @printf("solving optimization problem ... ")
+    result = optimize(f, g, lower, upper, x0; inplace = false)
+    @printf("done\n")
+
+    # show relative difference
+    x = Optim.minimizer(result)
+    @printf("relative difference = %.2f ", norm(x - test_x_vec)/norm(test_x_vec))
+
+    #flip back before denoising
+    x = 1 .- x
+
+    filename = "classifier_result_before_denoise"
+    save(joinpath("./scripts/temp/run_example8", "$filename.png"), MNIST.convert2image(x))
+
+    model_dir = "./src/utilities/saved_models/MNIST"
+    encoder_μ, encoder_logvar, decoder = load_model(model_dir,model_epoch_number)
+
+    @printf("applying denoiser ... ")
+
+    x .= reconstruct_images(encoder_μ, encoder_logvar, decoder,x)
+
+    filename = "classifier_result_after_denoise"
+    save(joinpath("./scripts/temp/run_example8", "$filename.png"), MNIST.convert2image(x))
 
 end
